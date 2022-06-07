@@ -8,20 +8,22 @@ class BaseUpdates:
         self._scrape_updates()
 
     def _scrape_updates(self):
-        self.updates = []
+        updates = []
         for label, url in self.urls.items():
             updates_tags = self._find_updates(url)
             for u in updates_tags:
-                self.updates.append(self._process_update_tag(u, label))
+                updates.append(self._process_update_tag(u, label, url))
+        self.updates = pd.DataFrame(updates)
 
-    def _process_update_tag(self, update_tag, label):
+    def _process_update_tag(self, update_tag, label, url):
         return {
             'municipality': self.municipality,
             'institution': self.institution,
             'label': label,
             'title': self._title_from_raw_html(update_tag),
             'date': self._date_from_raw_html(update_tag),
-            'content': self._content_from_raw_html(update_tag)
+            'content': self._content_from_raw_html(update_tag),
+            'url': url
         }
 
     def _title_from_raw_html(self, update_tag):
@@ -36,11 +38,11 @@ class BaseUpdates:
 
 class PernikVikUpdates(BaseUpdates):
     def __init__(self, driver):
-        self.municipality = 'Pernik'
-        self.institution = 'ViK'
+        self.municipality = 'Перник'
+        self.institution = 'ВиК'
         self.urls = {
-            'news': 'http://www.vik-pernik.eu/single.php?name=%CD%EE%E2%E8%ED%E8',
-            'repairments': 'http://www.vik-pernik.eu/single.php?name=%D0%E5%EC%EE%ED%F2%ED%E8%20%E4%E5%E9%ED%EE%F1%F2%E8'
+            'Новини': 'http://www.vik-pernik.eu/single.php?name=%CD%EE%E2%E8%ED%E8',
+            'Ремонтни дейности': 'http://www.vik-pernik.eu/single.php?name=%D0%E5%EC%EE%ED%F2%ED%E8%20%E4%E5%E9%ED%EE%F1%F2%E8'
         }
         super().__init__(driver)
 

@@ -1,0 +1,42 @@
+@font-face {
+    font-family: 'SofiaSans-Regular'; 
+    src: url('SofiaSans-Regular.otf');
+}
+
+@font-face {
+    font-family: 'SofiaSans-ExtraBold'; 
+    src: url('SofiaSans-ExtraBold.otf');
+}
+
+
+body {
+    font-family: "SofiaSans-Regular";
+    background: black;
+}
+
+h1, h2, h3 {
+    font-family: "SofiaSans-ExtraBold";
+    text-transform: uppercase;
+    color: white;
+    margin-top: 50px;
+}
+
+a {
+    color: rgb(62, 253, 151)
+}
+
+button {
+    font-family: "SofiaSans-ExtraBold";
+    margin-top: 15px;
+    margin-bottom: 15px;
+    padding: 10px 30px 10px 30px;
+}
+
+.dash-header {
+    font-family: "SofiaSans-ExtraBold";
+    font-weight: bold;
+}
+
+.dash-cell-value {
+    font-family: "SofiaSans-Regular";
+}
