@@ -1,0 +1,4 @@
+dash==1.19.0
+dash-table==4.11.2
+pandas==1.4.2
+selenium==3.141.0

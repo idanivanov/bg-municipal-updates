@@ -12,8 +12,7 @@ class BaseUpdates:
         for label, url in self.urls.items():
             updates_tags = self._find_updates(url)
             for u in updates_tags:
-                update = self._process_update_tag(u, label)
-                self.updates.append(update)
+                self.updates.append(self._process_update_tag(u, label))
 
     def _process_update_tag(self, update_tag, label):
         return {
