@@ -22,14 +22,16 @@ h1, h2, h3 {
 }
 
 a {
-    color: rgb(62, 253, 151)
+    color: #0dcaf0;
 }
 
 button {
     font-family: "SofiaSans-ExtraBold";
-    margin-top: 15px;
-    margin-bottom: 15px;
-    padding: 10px 30px 10px 30px;
+}
+
+.row {
+    padding-top: 10px;
+    padding-bottom: 10px;
 }
 
 .dash-header {

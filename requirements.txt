@@ -1,4 +1,9 @@
-dash==1.19.0
-dash-table==4.11.2
+dash==2.5.0
+dash-bootstrap-components==1.1.0
+dash-html-components==2.0.0
+dash-table==5.0.0
 pandas==1.4.2
 selenium==3.141.0
+diskcache==5.4.0
+webdriver-manager==3.7.0
+
