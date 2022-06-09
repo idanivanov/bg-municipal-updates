@@ -1,6 +1,7 @@
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.support.ui import WebDriverWait
 import pandas as pd
+import time
 import re
 
 
@@ -192,6 +193,8 @@ class PernikToploUpdates(BaseUpdates):
 
     def _find_updates(self, url):
         self.driver.get(url)
+        self.driver.implicitly_wait(10)
+        time.sleep(10)
 
         updates_tags = (
             self.driver
