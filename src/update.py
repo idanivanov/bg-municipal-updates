@@ -16,6 +16,10 @@ class BaseUpdates:
         self.updates = pd.DataFrame(updates)
 
     def _process_update_tag(self, update_tag, label, url):
+        update_url = self._url_from_raw_html(update_tag)
+        if not update_url:
+            update_url = url
+
         return {
             'municipality': self.municipality,
             'institution': self.institution,
@@ -23,7 +27,7 @@ class BaseUpdates:
             'title': self._title_from_raw_html(update_tag),
             'date': self._date_from_raw_html(update_tag),
             'content': self._content_from_raw_html(update_tag),
-            'url': url
+            'url': update_url
         }
 
     def _title_from_raw_html(self, update_tag):
@@ -33,6 +37,9 @@ class BaseUpdates:
         raise NotImplementedError('This method should be overridden by a child class.')
 
     def _content_from_raw_html(self, update_tag):
+        raise NotImplementedError('This method should be overridden by a child class.')
+
+    def _url_from_raw_html(self, update_tag):
         raise NotImplementedError('This method should be overridden by a child class.')
 
 
@@ -134,4 +141,90 @@ class PernikVikUpdates(BaseUpdates):
             .find_element_by_tag_name('div')
             .find_element_by_tag_name('div')
             .text
+        )
+
+    def _url_from_raw_html(self, update_tag):
+        return None
+
+
+class PernikToploUpdates(BaseUpdates):
+    def __init__(self, driver):
+        self.municipality = 'Перник'
+        self.institution = 'Топлофикация'
+        self.urls = {
+            'Новини': 'https://toplo-pernik.com/news/'
+        }
+        super().__init__(driver)
+
+    def _find_updates(self, url):
+        self.driver.get(url)
+        updates_tags = (
+            self.driver
+            .find_element_by_class_name('jet-smart-listing')
+            .find_elements_by_class_name('jet-smart-listing__featured')
+        )
+        updates_tags += (
+            self.driver
+            .find_element_by_class_name('jet-smart-listing')
+            .find_elements_by_class_name('jet-smart-listing__post')
+        )
+        return updates_tags
+
+    def _title_from_raw_html(self, update_tag):
+        try:
+            title = (
+                update_tag
+                .find_element_by_class_name('jet-smart-listing__post-title')
+                .text
+            )
+            assert title, 'The title does not contain any characters.'
+            return title
+        except:
+            return update_tag.text[: 50]
+
+    def _date_from_raw_html(self, update_tag):
+        try:
+            # sometimes this item throws an error due to "stale element reference"
+            date_string = (
+                update_tag
+                .find_element_by_class_name('post__date')
+                .text
+            )
+        except:
+            # in case of a nerror, extract all the text
+            date_string = update_tag.text
+
+        date_match = re.search(
+            r'\d{2}.\d{2}.\d{4}',
+            date_string
+        )
+
+        if date_match:
+            date_string = date_match[0]
+            # convert the date string to ISO
+            date_string = (
+                date_string[6: 10]
+                + '-'
+                + date_string[3: 5]
+                + '-'
+                + date_string[0: 2]
+                + ' '
+                + date_string[12: ]
+            )
+            return pd.Timestamp(date_string)
+        else:
+            raise ValueError('No date can be found in the update tag.')
+
+    def _content_from_raw_html(self, update_tag):
+        return (
+            update_tag
+            .find_element_by_class_name('jet-smart-listing__post-excerpt')
+            .text
+        )
+
+    def _url_from_raw_html(self, update_tag):
+        return (
+            update_tag
+            .find_element_by_class_name('jet-smart-listing__more')
+            .get_attribute('href')
         )
