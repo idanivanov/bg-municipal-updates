@@ -38,7 +38,9 @@
     > ufw allow 8050/tcp
     ```
 
-6. Run the server:
+6. Configure recaptcha - fill in your reCAPTCHA SITEKEY and SECRET in file `main.py`.
+
+7. Run the server:
 
     ```sh
     > cd {path_to_the_repo_directory}

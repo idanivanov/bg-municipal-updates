@@ -7,6 +7,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import diskcache
 import traceback
+import requests
+import json
 
 from src import update
 from src.logger import create_logger
@@ -29,8 +31,14 @@ app = Dash(
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     long_callback_manager=long_callback_manager,
     title='MuNews - Новини от български общини',
-    update_title='MuNews - Нoвини от български общини'
+    update_title='MuNews - Нoвини от български общини',
+    external_scripts=['https://www.google.com/recaptcha/api.js?render=explicit']
 )
+
+
+# recaptcha sitkey and secret
+app.server.config['RECAPTCHA_SITEKEY'] = '<fill-your-value>'
+app.server.config['RECAPTCHA_SECRET'] = '<fill-your-value>'
 
 
 app.layout = dbc.Container([
@@ -63,6 +71,12 @@ app.layout = dbc.Container([
             width=9
         )
     ]),
+    dbc.Row(
+        dbc.Col([
+            html.Div(id='scrape-recaptcha'),
+            html.Div(id='scrape-recaptcha-response', style={'display': 'none'}),
+        ])
+    ),
     dbc.Row(
         dbc.Col(
             html.P('', id='error-message', style={'color': 'red'})
@@ -138,13 +152,33 @@ app.layout = dbc.Container([
 ])
 
 
+app.clientside_callback(
+    '''
+    function(n_clicks) {
+        if (n_clicks == 0){
+            grecaptcha.render('scrape-recaptcha', {'sitekey' : '_sitekey'});
+        }
+        if (n_clicks > 0){
+            var recaptcha_response = document.getElementById('g-recaptcha-response');
+            return recaptcha_response.value;
+        }
+    }
+    '''.replace('_sitekey', app.server.config['RECAPTCHA_SITEKEY']),
+    Output('scrape-recaptcha-response', 'children'), 
+    Input('scrape-button', 'n_clicks')
+)
+
+
 @app.long_callback(
     output=[
         Output('scraped-data', 'data'),
         Output('scrape-button', 'disabled'),
         Output('error-message', 'children')
     ],
-    inputs=Input('scrape-button', 'n_clicks'),
+    inputs=[
+        Input('scrape-button', 'n_clicks'),
+        Input('scrape-recaptcha-response', 'children')
+    ],
     running=[
         (
             Output('progress-bar', 'style'),
@@ -157,14 +191,32 @@ app.layout = dbc.Container([
         Output('progress-bar', 'value')
     ]
 )
-def scrape_data(set_progress, n_clicks):
+def scrape_data(set_progress, n_clicks, recaptcha_response):
+    def recaptcha_success():
+        if recaptcha_response is None \
+           or recaptcha_response.strip() == '':
+            return False
+        request_headers = {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
+        }
+        request_url = 'https://www.google.com/recaptcha/api/siteverify?secret={0}&response={1}'.format(
+            app.server.config['RECAPTCHA_SECRET'],
+            recaptcha_response
+        )
+        response = requests.post(
+            request_url,
+            headers=request_headers
+        )
+        response_json = json.loads(response.text)
+        return response_json['success']
+
     def progress(percent):
         set_progress((
             f'Извличане: {percent}%',
             percent
         ))
 
-    if n_clicks == 1:
+    if n_clicks >= 1 and recaptcha_success():
         try:
             logger.info('Starting the scraping process...')
             progress(10)
