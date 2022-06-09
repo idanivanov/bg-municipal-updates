@@ -236,20 +236,25 @@ def scrape_data(set_progress, n_clicks, recaptcha_response):
 
             logger.info('Scraping website: Pernik ViK')
             pernik_vik_updates = update.PernikVikUpdates(driver)
-            progress(50)
+            progress(40)
 
             logger.info('Scraping website: Pernik Toplo')
             pernik_toplo_updates = update.PernikToploUpdates(driver)
-            progress(70)
+            progress(60)
+
+            logger.info('Scraping website: Pernik Elektro')
+            pernik_elektro_updates = update.PernikElektroUpdates(driver)
+            progress(80)
 
             logger.info('Quitting Chrome webdriver...')
             driver.quit()
-            progress(80)
+            progress(90)
 
             logger.info('Preparing the data to be displayed on the Dash table...')
             updates = pd.concat([
                 pernik_vik_updates.updates,
-                pernik_toplo_updates.updates
+                pernik_toplo_updates.updates,
+                pernik_elektro_updates.updates
             ])
             updates['date_iso'] = updates['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
             updates['date_bg'] = updates['date'].dt.strftime('%d.%m.%Y %H:%M:%S')

@@ -1,3 +1,5 @@
+from selenium.common.exceptions import StaleElementReferenceException
+from selenium.webdriver.support.ui import WebDriverWait
 import pandas as pd
 import re
 
@@ -5,6 +7,20 @@ import re
 class BaseUpdates:
     def __init__(self, driver):
         self.driver = driver
+        self.bg_month_map = {
+            'януари': '01',
+            'февруари': '02',
+            'март': '03',
+            'април': '04',
+            'май': '05',
+            'юни': '06',
+            'юли': '07',
+            'август': '08',
+            'септември': '09',
+            'октомври': '10',
+            'ноември': '11',
+            'декември': '12'
+        }
         self._scrape_updates()
 
     def _scrape_updates(self):
@@ -29,6 +45,24 @@ class BaseUpdates:
             'content': self._content_from_raw_html(update_tag),
             'url': update_url
         }
+
+    def wait_staleness(self, element):
+        def not_staleness_of(element):
+            '''The opposite of:
+            https://www.selenium.dev/selenium/docs/api/py/_modules/selenium/webdriver/support/expected_conditions.html#staleness_of
+            '''
+            def _predicate(_):
+                try:
+                    # Calling any method forces a staleness check
+                    element.is_enabled()
+                    return True
+                except StaleElementReferenceException:
+                    return False
+
+            return _predicate
+
+        wait = WebDriverWait(self.driver, 20)
+        wait.until(not_staleness_of(element))
 
     def _title_from_raw_html(self, update_tag):
         raise NotImplementedError('This method should be overridden by a child class.')
@@ -158,6 +192,7 @@ class PernikToploUpdates(BaseUpdates):
 
     def _find_updates(self, url):
         self.driver.get(url)
+
         updates_tags = (
             self.driver
             .find_element_by_class_name('jet-smart-listing')
@@ -172,27 +207,24 @@ class PernikToploUpdates(BaseUpdates):
 
     def _title_from_raw_html(self, update_tag):
         try:
-            title = (
+            title_tag = (
                 update_tag
                 .find_element_by_class_name('jet-smart-listing__post-title')
-                .text
             )
+            self.wait_staleness(title_tag)
+            title = title_tag.text
             assert title, 'The title does not contain any characters.'
             return title
         except:
             return update_tag.text[: 50]
 
     def _date_from_raw_html(self, update_tag):
-        try:
-            # sometimes this item throws an error due to "stale element reference"
-            date_string = (
-                update_tag
-                .find_element_by_class_name('post__date')
-                .text
-            )
-        except:
-            # in case of a nerror, extract all the text
-            date_string = update_tag.text
+        date_tag = (
+            update_tag
+            .find_element_by_class_name('post__date')
+        )
+        self.wait_staleness(date_tag)
+        date_string = date_tag.text
 
         date_match = re.search(
             r'\d{2}.\d{2}.\d{4}',
@@ -208,8 +240,83 @@ class PernikToploUpdates(BaseUpdates):
                 + date_string[3: 5]
                 + '-'
                 + date_string[0: 2]
-                + ' '
-                + date_string[12: ]
+            )
+            return pd.Timestamp(date_string)
+        else:
+            raise ValueError('No date can be found in the update tag.')
+
+    def _content_from_raw_html(self, update_tag):
+        content_tag = (
+            update_tag
+            .find_element_by_class_name('jet-smart-listing__post-excerpt')
+        )
+        self.wait_staleness(content_tag)
+        return content_tag.text
+
+    def _url_from_raw_html(self, update_tag):
+        url_tag = (
+            update_tag
+            .find_element_by_class_name('jet-smart-listing__more')
+        )
+        self.wait_staleness(url_tag)
+        return url_tag.get_attribute('href')
+
+
+class PernikElektroUpdates(BaseUpdates):
+    def __init__(self, driver):
+        self.municipality = 'Перник'
+        self.institution = 'Електрозахранване'
+        self.urls = {
+            'Новини': 'https://electrohold.bg/bg/mediya-centr-group/novini/'
+        }
+        super().__init__(driver)
+
+    def _find_updates(self, url):
+        self.driver.get(url)
+        updates_tags = (
+            self.driver
+            .find_element_by_class_name('news-card')
+            .find_elements_by_class_name('card-wrapper')
+        )
+        for u in updates_tags:
+            self.wait_staleness(u)
+            if 'перник' in u.text.lower():
+                # return only updates that are relevant for Pernik
+                yield update_tag
+
+    def _title_from_raw_html(self, update_tag):
+        try:
+            title = (
+                update_tag
+                .find_element_by_class_name('card-content__title')
+                .text
+            )
+            assert title, 'The title does not contain any characters.'
+            return title
+        except:
+            return update_tag.text[: 50]
+
+    def _date_from_raw_html(self, update_tag):
+        date_string = (
+            update_tag
+            .find_element_by_class_name('card-content__data')
+            .text
+        )
+
+        date_match = re.search(
+            r'\d{2} [а-я]{3,} \d{4}',
+            date_string
+        )
+
+        if date_match:
+            date_string = date_match[0]
+            # convert the date string to ISO
+            date_string = (
+                date_string[-4: ]
+                + '-'
+                + self.bg_month_map[date_string[3: -5]]
+                + '-'
+                + date_string[0: 2]
             )
             return pd.Timestamp(date_string)
         else:
@@ -218,13 +325,13 @@ class PernikToploUpdates(BaseUpdates):
     def _content_from_raw_html(self, update_tag):
         return (
             update_tag
-            .find_element_by_class_name('jet-smart-listing__post-excerpt')
+            .find_element_by_class_name('card-content__text')
             .text
         )
 
     def _url_from_raw_html(self, update_tag):
         return (
             update_tag
-            .find_element_by_class_name('jet-smart-listing__more')
+            .find_element_by_class_name('card-content__button')
             .get_attribute('href')
         )
