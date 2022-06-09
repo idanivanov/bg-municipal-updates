@@ -21,6 +21,10 @@ h1, h2, h3 {
     margin-top: 50px;
 }
 
+p {
+    color: white;
+}
+
 a {
     color: #0dcaf0;
 }

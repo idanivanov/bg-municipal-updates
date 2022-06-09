@@ -6,8 +6,12 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import diskcache
+import traceback
 
 from src import update
+from src.logger import create_logger
+
+logger = create_logger('bg_municipal_updates', 'logs')
 
 
 # setup diskcache
@@ -15,18 +19,26 @@ cache = diskcache.Cache('./cache')
 long_callback_manager = DiskcacheLongCallbackManager(cache)
 
 
+# set selenium to run on the backend
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument('--headless')
+
+
 app = Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
-    long_callback_manager=long_callback_manager
+    long_callback_manager=long_callback_manager,
+    title='MuNews - Новини от български общини',
+    update_title='MuNews - Нoвини от български общини'
 )
 
 
 app.layout = dbc.Container([
     dbc.Row(
-        dbc.Col(
-            html.H1('Новини от български общини')
-        )
+        dbc.Col([
+            html.H1('MuNews'),
+            html.P('Новини от български общини')
+        ])
     ),
     dbc.Row(
         dbc.Col(
@@ -46,15 +58,16 @@ app.layout = dbc.Container([
             dbc.Progress(
                 id='progress-bar',
                 color='info',
-                striped=True,
-                style={
-                    'height': '100%',
-                    'visibility': 'hidden'
-                }
+                striped=True
             ),
             width=9
         )
     ]),
+    dbc.Row(
+        dbc.Col(
+            html.P('', id='error-message', style={'color': 'red'})
+        )
+    ),
     dbc.Row(
         dbc.Col(
             DataTable(
@@ -128,7 +141,8 @@ app.layout = dbc.Container([
 @app.long_callback(
     output=[
         Output('scraped-data', 'data'),
-        Output('scrape-button', 'color')
+        Output('scrape-button', 'disabled'),
+        Output('error-message', 'children')
     ],
     inputs=Input('scrape-button', 'n_clicks'),
     running=[
@@ -143,7 +157,7 @@ app.layout = dbc.Container([
         Output('progress-bar', 'value')
     ]
 )
-def callback(set_progress, n_clicks):
+def scrape_data(set_progress, n_clicks):
     def progress(percent):
         set_progress((
             f'Извличане: {percent}%',
@@ -151,30 +165,48 @@ def callback(set_progress, n_clicks):
         ))
 
     if n_clicks == 1:
-        progress(0)
+        try:
+            logger.info('Starting the scraping process...')
+            progress(10)
 
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-        progress(40)
+            logger.info('Loading Chrome webdriver...')
+            driver = webdriver.Chrome(
+                executable_path=ChromeDriverManager().install(),
+                options=chrome_options
+            )
+            progress(40)
 
-        pernik_vik_updates = update.PernikVikUpdates(driver)
-        progress(70)
+            logger.info('Scraping website: Pernik ViK')
+            pernik_vik_updates = update.PernikVikUpdates(driver)
+            progress(70)
 
-        driver.quit()
-        progress(80)
+            logger.info('Quitting Chrome webdriver...')
+            driver.quit()
+            progress(80)
 
-        # prepare the data for the table
-        updates = pernik_vik_updates.updates.copy(deep=True)
-        updates['date'] = updates['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        updates['link'] = updates['url'].apply(
-            lambda u: f'[Източник]({u})'
-        )
-        progress(100)
+            logger.info('Preparing the data to be displayed on the Dash table...')
+            updates = pernik_vik_updates.updates.copy(deep=True)
+            updates['date'] = updates['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+            updates['link'] = updates['url'].apply(
+                lambda u: f'[Източник]({u})'
+            )
+            progress(100)
 
-        return [
-            updates.to_dict(orient='records'),
-            True
-        ]
+            logger.info('Done scraping.')
+            return [
+                updates.to_dict(orient='records'),
+                True,
+                ''
+            ]
+
+        except Exception as e:
+            logger.error(str(e) + '\n' + traceback.format_exc())
+            return [
+                [],
+                True,
+                'Възникна грешка! Свържете се с разработчика!'
+            ]
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, host='0.0.0.0')
