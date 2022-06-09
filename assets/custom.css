@@ -21,6 +21,10 @@ h1, h2, h3 {
     margin-top: 50px;
 }
 
+input {
+    color: white !important;
+}
+
 p {
     color: white;
 }
@@ -45,4 +49,8 @@ button {
 
 .dash-cell-value {
     font-family: "SofiaSans-Regular";
+}
+
+.show-hide {
+    display: none;
 }

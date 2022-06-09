@@ -89,8 +89,13 @@ app.layout = dbc.Container([
                 data=[],
                 columns=[
                     {
+                        'name': 'Дата (ISO)',
+                        'id': 'date_iso',
+                        'type': 'datetime'
+                    },
+                    {
                         'name': 'Дата',
-                        'id': 'date',
+                        'id': 'date_bg',
                         'type': 'datetime'
                     },
                     {
@@ -120,11 +125,12 @@ app.layout = dbc.Container([
                         'presentation': 'markdown'
                     }
                 ],
+                hidden_columns=['date_iso'],
                 filter_action='native',
                 sort_action='native',
                 sort_by=[
                     {
-                        'column_id': 'date',
+                        'column_id': 'date_iso',
                         'direction': 'desc'
                     }
                 ],
@@ -238,7 +244,8 @@ def scrape_data(set_progress, n_clicks, recaptcha_response):
 
             logger.info('Preparing the data to be displayed on the Dash table...')
             updates = pernik_vik_updates.updates.copy(deep=True)
-            updates['date'] = updates['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+            updates['date_iso'] = updates['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+            updates['date_bg'] = updates['date'].dt.strftime('%d.%m.%Y %H:%M:%S')
             updates['link'] = updates['url'].apply(
                 lambda u: f'[Източник]({u})'
             )
